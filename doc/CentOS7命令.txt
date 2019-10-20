@@ -1,0 +1,56 @@
+#查看服务状态
+systemctl status NetworkManager / network
+#停止服务
+systemctl stop NetworkManager
+#启动服务
+systemctl start NetworkManager
+#禁止服务开机启动
+systemctl disable NetworkManager
+#设置服务开机启动
+systemctl enable NetworkManager
+
+#查看网络信息
+ip addr
+#查看具体某个网卡信息
+ip addr ls eno16777736
+
+#停止网卡
+ip link set eno16777736 down
+#启动网卡
+ip link set eno16777736 up
+
+#修改ip地址
+ip addr del 192.168.80.134/24 dev eno16777736
+ip addr add 192.168.80.136/24 dev eno16777736
+
+#查看路由信息
+ip route show
+#添加路由
+ip route add default via 192.168.80.2 dev br0
+
+#安装ifconfig命令
+yum install -y net-tools
+
+
+#修改主机名
+hostnamectl set-hostname node-1
+
+
+
+
+#防火墙配置:Centos升级到7之后，发现无法使用iptables控制Linux的端口，google之后发现Centos 7使用firewalld代替了原来的iptables。下面记录如何使用firewalld开放Linux端口： 
+
+#开启防火墙
+systemctl start firewalld
+
+#开启端口
+firewall-cmd --zone=public --add-port=08/tcp --permanent
+ 
+命令含义：
+--zone #作用域
+--add-port=80/tcp  #添加端口，格式为：端口/通讯协议
+--permanent   #永久生效，没有此参数重启后失效
+
+#重新加载防火墙配置
+firewall-cmd --reload
+ 

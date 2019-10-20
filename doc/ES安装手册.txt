@@ -1,0 +1,380 @@
+http://www.elastic.co/guide/en/elasticsearch/reference/current/setup-configuration.html
+https://github.com/elastic/elasticsearch
+###【在多台机器上执行下面的命令】###
+#es启动时需要使用非root用户，所有创建一个xiaoniu用户：
+useradd xiaoniu
+#为hadoop用户添加密码：
+echo 123456 | passwd --stdin xiaoniu
+#将bigdata添加到sudoers
+echo "xiaoniu ALL = (root) NOPASSWD:ALL" | tee /etc/sudoers.d/xiaoniu
+chmod 0440 /etc/sudoers.d/xiaoniu
+#解决sudo: sorry, you must have a tty to run sudo问题，在/etc/sudoer注释掉 Default requiretty 一行
+sudo sed -i 's/Defaults    requiretty/Defaults:xiaoniu !requiretty/' /etc/sudoers
+
+#创建一个bigdata目录
+mkdir /{bigdata,data}
+#给相应的目录添加权限
+chown -R xiaoniu:xiaoniu /{bigdata,data}
+
+-------------------------------------------------------------------------------------------------
+1.安装jdk（jdk要求1.8.20以上）
+
+2.上传es安装包
+
+3.解压es
+tar -zxvf elasticsearch-5.4.3.tar.gz -C /bigdata/
+
+4.修改配置
+vi /bigdata/elasticsearch-5.4.3/config/elasticsearch.yml
+#集群名称，通过组播的方式通信，通过名称判断属于哪个集群
+cluster.name: bigdata
+#节点名称，要唯一
+node.name: es-1
+#数据存放位置
+path.data: /data/es/data
+#日志存放位置(可选)
+path.logs: /data/es/logs
+#es绑定的ip地址
+network.host: 192.168.10.16
+#初始化时可进行选举的节点
+discovery.zen.ping.unicast.hosts: ["node-4", "node-5", "node-6"]
+
+
+/bigdata/elasticsearch-5.4.3/bin/elasticsearch -d
+-------------------------------------------------------------------------------------------------
+#出现错误
+[1]: max file descriptors [4096] for elasticsearch process is too low, increase to at least [65536]
+[2]: max virtual memory areas vm.max_map_count [65530] is too low, increase to at least [262144]
+
+#用户最大可创建文件数太小
+sudo vi /etc/security/limits.conf
+* soft nofile 65536
+* hard nofile 65536
+
+#查看可打开文件数量
+ulimit -Hn
+
+
+#最大虚拟内存太小
+sudo vi /etc/sysctl.conf 
+vm.max_map_count=262144
+
+#查看虚拟内存的大小
+sudo sysctl -p
+
+
+5.使用scp拷贝到其他节点
+scp -r elasticsearch-5.4.3/ node-5:$PWD
+scp -r elasticsearch-5.4.3/ node-6:$PWD
+
+6.在其他节点上修改es配置，需要修改的有node.name和network.host
+
+7.启动es（/bigdata/elasticsearch-5.4.3/bin/elasticsearch -h查看帮助文档） 
+/bigdata/elasticsearch-5.4.3/bin/elasticsearch -d
+
+
+8.用浏览器访问es所在机器的9200端口
+http://192.168.10.16:9200/
+{
+  "name" : "node-2",
+  "cluster_name" : "bigdata",
+  "cluster_uuid" : "v4AHbENYQ8-M3Aq8J5OZ5g",
+  "version" : {
+    "number" : "5.4.3",
+    "build_hash" : "eed30a8",
+    "build_date" : "2017-06-22T00:34:03.743Z",
+    "build_snapshot" : false,
+    "lucene_version" : "6.5.1"
+  },
+  "tagline" : "You Know, for Search"
+}
+
+kill `ps -ef | grep Elasticsearch | grep -v grep | awk '{print $2}'`
+
+#查看集群状态
+curl -XGET 'http://192.168.10.16:9200/_cluster/health?pretty'
+http://192.168.10.16:9200/_cluster/health?pretty
+------------------------------------------------------------------------------------------------------------------
+
+RESTful接口URL的格式：
+http://192.168.10.16:9200/<index>/<type>/[<id>]
+其中index、type是必须提供的。
+id是可选的，不提供es会自动生成。
+index、type将信息进行分层，利于管理。
+index可以理解为数据库；type理解为数据表；id相当于数据库表中记录的主键，是唯一的。
+
+
+#向store索引中添加一些书籍
+curl -XPUT 'http://192.168.10.16:9200/store/books/1' -d '{
+  "title": "Elasticsearch: The Definitive Guide",
+  "name" : {
+    "first" : "Zachary",
+    "last" : "Tong"
+  },
+  "publish_date":"2015-02-06",
+  "price":"49.99"
+}'
+
+#在linux中通过curl的方式查询
+curl -XGET 'http://192.168.10.18:9200/store/books/1'
+
+#通过浏览器查询
+http://192.168.10.18:9200/store/books/1
+
+
+#在添加一个书的信息
+curl -XPUT 'http://192.168.10.18:9200/store/books/2' -d '{
+  "title": "Elasticsearch Blueprints",
+  "name" : {
+    "first" : "Vineeth",
+    "last" : "Mohan"
+  },
+  "publish_date":"2015-06-06",
+  "price":"35.99"
+}'
+
+
+# 通过ID获得文档信息
+curl -XGET 'http://192.168.10.18:9200/store/books/1'
+
+#在浏览器中查看
+http://92.168.10.18:9200/store/books/1
+
+# 通过_source获取指定的字段
+curl -XGET 'http://192.168.10.16:9200/store/books/1?_source=title'
+curl -XGET 'http://192.168.10.16:9200/store/books/1?_source=title,price'
+curl -XGET 'http://192.168.10.16:9200/store/books/1?_source'
+
+#可以通过覆盖的方式更新
+curl -XPUT 'http://192.168.10.16:9200/store/books/1' -d '{
+  "title": "Elasticsearch: The Definitive Guide",
+  "name" : {
+    "first" : "Zachary",
+    "last" : "Tong"
+  },
+  "publish_date":"2016-02-06",
+  "price":"99.99"
+}'
+
+# 或者通过 _update  API的方式单独更新你想要更新的
+curl -XPOST 'http://192.168.10.16:9200/store/books/1/_update' -d '{
+  "doc": {
+     "price" : 88.88
+  }
+}'
+
+curl -XGET 'http://192.168.10.16:9200/store/books/1'
+
+#删除一个文档
+curl -XDELETE 'http://192.168.10.16:9200/store/books/1'
+
+
+curl -XPUT 'http://192.168.10.16:9200/store/books/4' -d '{
+  "title": "Elasticsearch: The Definitive Guide",
+  "author": "Guide",
+  "publish_date":"2016-02-06",
+  "price":"35.99"
+}'
+
+
+#https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl.html
+# 最简单filter查询
+# SELECT * FROM books WHERE price = 35.99
+# filtered 查询价格是35.99的
+# 返回的的分是1.0
+curl -XGET 'http://192.168.10.16:9200/store/books/_search' -d '{
+  "query": {
+    "bool": {
+      "must": {
+        "match_all": {}
+      },
+      "filter": {
+        "term": {
+          "price": 35.99
+        }
+      }
+    }
+  }
+}'
+
+# 返回的的分是1.0
+curl -XGET 'http://192.168.10.16:9200/store/books/_search' -d '{
+  "query": {
+    "constant_score": {
+      "filter": {
+        "term": {
+          "price": 35.99
+        }
+      }
+    }
+  }
+}'
+
+# 返回的的分是0.0
+curl -XGET 'http://192.168.10.16:9200/store/books/_search' -d '{
+    "query": {
+        "bool": {
+           "filter" : {
+                "term" : {
+                  "price" : 35.99
+                }
+            }
+        }
+    }
+}'
+
+#指定多个值
+curl -XGET 'http://192.168.10.16:9200/store/books/_search' -d '{
+    "query" : {
+        "bool" : {
+            "filter" : {
+                "terms" : {
+                    "price" : [35.99, 99.99]
+                  }
+              }
+        }
+    }
+}'
+
+curl -XGET 'http://192.168.10.16:9200/store/books/_search' -d '{
+    "query" : {
+        "bool" : {
+            "must": {
+                "match_all": {}
+            },
+            "filter" : {
+                "terms" : {
+                    "price" : [35.99, 99.99]
+                  }
+              }
+        }
+    }
+}'
+
+
+# SELECT * FROM books WHERE publish_date = "2015-02-06"
+curl -XGET 'http://192.168.10.16:9200/store/books/_search' -d '{
+  "query" : {
+    "bool" : {
+        "filter" : {
+           "term" : {
+              "publish_date" : "2015-02-06"
+            }
+          }
+      }
+  }
+}'
+
+# bool过滤查询，可以做组合过滤查询
+# SELECT * FROM books WHERE (price = 35.99 OR price = 99.99) AND publish_date != "2016-02-06"
+# 类似的，Elasticsearch也有 and, or, not这样的组合条件的查询方式
+# 格式如下：
+#  {
+#    "bool" : {
+#    "must" :     [],
+#    "should" :   [],
+#    "must_not" : [],
+#    }
+#  }
+#
+# must: 条件必须满足，相当于 and
+# should: 条件可以满足也可以不满足，相当于 or
+# must_not: 条件不需要满足，相当于 not
+
+curl -XGET 'http://192.168.10.16:9200/store/books/_search' -d '{
+  "query" : {
+    "bool" : {
+      "should" : [
+        { "term" : {"price" : 35.99}},
+        { "term" : {"price" : 99.99}}
+      ],
+      "must_not" : {
+        "term" : {"publish_date" : "2016-02-06"}
+      }
+    }
+  }
+}'
+
+
+# 嵌套查询
+# SELECT * FROM books WHERE price = 35.99 OR ( publish_date = "2016-02-06" AND price = 99.99 )
+
+curl -XGET 'http://192.168.10.16:9200/store/books/_search' -d '{
+    "query": {
+        "bool": {
+            "should": [
+                {
+                    "term": {
+                        "price": 35.99
+                    }
+                },
+                {
+                    "bool": {
+                        "must": [
+                            {
+                                "term": {
+                                    "publish_date": "2016-02-06"
+                                }
+                            },
+                            {
+                                "term": {
+                                    "price": 99.99
+                                }
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    }
+}'
+
+# range范围过滤
+# SELECT * FROM books WHERE price >= 10 AND price < 99
+# gt :  > 大于
+# lt :  < 小于
+# gte :  >= 大于等于
+# lte :  <= 小于等于
+
+curl -XGET 'http://192.168.10.16:9200/store/books/_search' -d '{
+    "query": {
+        "range" : {
+            "price" : {
+                "gte" : 10,
+                "lt" : 99
+            }
+        }
+    }
+}
+
+#name和author都必须包含Guide，并且价钱等于33.99或者188.99
+curl -XGET 'http://192.168.10.16:9200/store/books/_search' -d '{
+    "query": {
+        "bool": {
+            "must": {
+                "multi_match": {
+                    "operator": "and",
+                    "fields": [
+                        "name",
+                        "author"
+                    ],
+                    "query": "Guide"
+                }
+            },
+            "filter": {
+                "terms": {
+                    "price": [
+                        35.99,
+                        188.99
+                    ]
+                }
+            }
+        }
+    }
+}'
+
+
+
+http://192.168.10.16:9200/store/books/_search
+
+

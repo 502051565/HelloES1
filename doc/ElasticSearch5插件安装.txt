@@ -1,0 +1,182 @@
+http://blog.csdn.net/napoay/article/details/53896348
+
+#更新
+sudo yum update -y
+
+
+sudo rpm -ivh http://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+sudo rpm -ivh https://kojipkgs.fedoraproject.org//packages/http-parser/2.7.1/3.el7/x86_64/http-parser-2.7.1-3.el7.x86_64.rpm
+
+
+sudo yum install npm
+
+sudo yum install -y git
+
+sudo yum install -y bzip2
+
+git clone git://github.com/mobz/elasticsearch-head.git
+
+#将源码包下载后剪切到/bigdata目录，并改所属用户和组
+sudo chown -R xiaoniu:xiaoniu /bigdata/elasticsearch-head
+
+#进入到elasticsearch-head中
+cd elasticsearch-head
+#编译安装
+npm install
+
+
+打开elasticsearch-head-master/Gruntfile.js，找到下面connect属性，新增hostname: '0.0.0.0',
+		connect: {
+                        server: {
+                                options: {
+                                        hostname: '0.0.0.0',
+                                        port: 9100,
+                                        base: '.',
+                                        keepalive: true
+                                }
+                        }
+                }
+
+
+
+编辑elasticsearch-5.4.3/config/elasticsearch.yml,加入以下内容：
+http.cors.enabled: true
+http.cors.allow-origin: "*"
+
+#运行服务
+npm run start
+
+---------------------------------------------------------------------------------------------
+
+
+安装IK分词器
+下载对应版本的插件
+https://github.com/medcl/elasticsearch-analysis-ik/releases
+
+
+首先下载es对应版本的ik分词器的zip包，上传到es服务器上，在es的安装目录下有一个plugins的目录，在这个目录下创建一个叫ik的目录
+然后将解压好的内容，拷贝到ik目录
+将ik目录拷贝到其他的es节点
+重新启动所有的es
+
+
+#创建索引名字叫news
+curl -XPUT http://192.168.100.211:9200/news
+
+#创建mapping（相当于数据中的schema信息，表名和字段名以及字段的类型）
+curl -XPOST http://192.168.100.211:9200/news/fulltext/_mapping -d'
+{
+        "properties": {
+            "content": {
+                "type": "text",
+                "analyzer": "ik_max_word",
+                "search_analyzer": "ik_max_word"
+            }
+        }
+    
+}'
+
+
+curl -XPOST http://192.168.100.211:9200/news/fulltext/1 -d'
+{"content":"美国留给伊拉克的是个烂摊子吗"}'
+
+curl -XPOST http://192.168.100.211:9200/news/fulltext/2 -d'
+{"content":"公安部：各地校车将享最高路权"}'
+
+curl -XPOST http://192.168.100.211:9200/news/fulltext/3 -d'
+{"content":"中韩渔警冲突调查：韩警平均每天扣1艘中国渔船"}'
+
+curl -XPOST http://192.168.100.211:9200/news/fulltext/4 -d'
+{"content":"中国驻洛杉矶领事馆遭亚裔男子枪击 嫌犯已自首"}'
+
+curl -XPOST http://192.168.100.211:9200/news/fulltext/_search  -d'
+{
+    "query" : { "match" : { "content" : "中国" }},
+    "highlight" : {
+        "pre_tags" : ["<font color='red'>", "<tag2>"],
+        "post_tags" : ["</font>", "</tag2>"],
+        "fields" : {
+            "content" : {}
+        }
+    }
+}'
+
+-------------------------------------------------------------------
+
+
+curl -XGET 'http://192.168.100.211:9200/_analyze?pretty&analyzer=ik_max_word' -d '联想是全球最大的笔记本厂商'
+
+curl -XGET 'https://192.168.232.11:9200/_analyze?pretty&analyzer=ik_smart' -d '联想是全球最大的笔记本厂商'
+
+curl -XPUT 'https://192.168.100.211:9200/iktest?pretty' -d '{
+    "settings" : {
+        "analysis" : {
+            "analyzer" : {
+                "ik" : {
+                    "tokenizer" : "ik_max_word"
+                }
+            }
+        }
+    },
+    "mappings" : {
+        "article" : {
+            "dynamic" : true,
+            "properties" : {
+                "subject" : {
+                    "type" : "string",
+                    "analyzer" : "ik_max_word"
+                }
+            }
+        }
+    }
+}'
+
+curl -XPUT 'https://192.168.100.211:9200/iktest?pretty' -d '{
+    "settings" : {
+        "analysis" : {
+            "analyzer" : {
+                "ik" : {
+                    "tokenizer" : "ik_max_word"
+                }
+            }
+        }
+    },
+    "mappings" : {
+        "article" : {
+            "dynamic" : true,
+            "properties" : {
+                "subject" : {
+                    "type" : "string",
+                    "analyzer" : "ik_max_word"
+                }
+            }
+        }
+    }
+}'
+
+
+
+curl -XGET 'http://192.168.10.16:9200/_analyze?pretty&analyzer=ik_max_word' -d ‘中华人民共和国’
+
+---------------------------------------------------------------------------------------------
+
+es安装SQL插件
+./bin/elasticsearch-plugin install https://github.com/NLPchina/elasticsearch-sql/releases/download/5.4.3.0/elasticsearch-sql-5.4.3.0.zip
+
+#然后将解压到plugins目录下的内容拷贝到其他es的节点的plugins目录
+
+下载SQL的Server
+wget https://github.com/NLPchina/elasticsearch-sql/releases/download/5.4.1.0/es-sql-site-standalone.zip
+
+用npm编译安装
+unzip es-sql-site-standalone.zip
+cd site-server/
+npm install express --save
+
+修改SQL的Server的端口
+vi site_configuration.json
+启动服务
+node node-server.js &
+
+
+

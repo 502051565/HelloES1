@@ -1,0 +1,33 @@
+1.安装JDK（1.8）
+2.上传解压Elasticsearch-5.4.3
+3.创建一个普通用户，然后将对于的目录修改为普通用户的所属用户和所属组
+4.修改配置文件config/elasticsearch.yml
+	network.host: 192.168.100.211
+5.启动ES，发现报错
+	bin/elasticsearch
+	#出现错误
+	[1]: max file descriptors [4096] for elasticsearch process is too low, increase to at least [65536]
+	[2]: max virtual memory areas vm.max_map_count [65530] is too low, increase to at least [262144]
+
+	#用户最大可创建文件数太小
+	sudo vi /etc/security/limits.conf
+	* soft nofile 65536
+	* hard nofile 65536
+
+	#查看可打开文件数量
+	ulimit -Hn
+
+
+	#最大虚拟内存太小
+	sudo vi /etc/sysctl.conf 
+	vm.max_map_count=262144
+
+	#查看虚拟内存的大小
+	sudo sysctl -p
+
+6重启linux
+	shutdown -r now
+
+7.通过浏览器访问ES
+	192.168.100.211:9200
+
