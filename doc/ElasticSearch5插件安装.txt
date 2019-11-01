@@ -61,10 +61,10 @@ https://github.com/medcl/elasticsearch-analysis-ik/releases
 
 
 #创建索引名字叫news
-curl -XPUT http://192.168.100.211:9200/news
+curl -H "Content-Type: application/json" -XPUT  http://192.168.1.37:9200/news
 
 #创建mapping（相当于数据中的schema信息，表名和字段名以及字段的类型）
-curl -XPOST http://192.168.100.211:9200/news/fulltext/_mapping -d'
+curl -H "Content-Type: application/json" -XPOST  http://192.168.1.37:9200/news/fulltext/_mapping -d'
 {
         "properties": {
             "content": {
@@ -77,19 +77,19 @@ curl -XPOST http://192.168.100.211:9200/news/fulltext/_mapping -d'
 }'
 
 
-curl -XPOST http://192.168.100.211:9200/news/fulltext/1 -d'
+curl -H "Content-Type: application/json" -XPOST http://192.168.1.37:9200/news/fulltext/1 -d'
 {"content":"美国留给伊拉克的是个烂摊子吗"}'
 
-curl -XPOST http://192.168.100.211:9200/news/fulltext/2 -d'
+curl -H "Content-Type: application/json" -XPOST http://192.168.1.37:9200/news/fulltext/2 -d'
 {"content":"公安部：各地校车将享最高路权"}'
 
-curl -XPOST http://192.168.100.211:9200/news/fulltext/3 -d'
+curl -H "Content-Type: application/json" -XPOST http://192.168.1.37:9200/news/fulltext/3 -d'
 {"content":"中韩渔警冲突调查：韩警平均每天扣1艘中国渔船"}'
 
-curl -XPOST http://192.168.100.211:9200/news/fulltext/4 -d'
+curl -H "Content-Type: application/json" -XPOST http://192.168.1.37:9200/news/fulltext/4 -d'
 {"content":"中国驻洛杉矶领事馆遭亚裔男子枪击 嫌犯已自首"}'
 
-curl -XPOST http://192.168.100.211:9200/news/fulltext/_search  -d'
+curl -H "Content-Type: application/json" -XPOST http://192.168.1.37:9200/news/fulltext/_search  -d'
 {
     "query" : { "match" : { "content" : "中国" }},
     "highlight" : {
@@ -100,59 +100,16 @@ curl -XPOST http://192.168.100.211:9200/news/fulltext/_search  -d'
         }
     }
 }'
-
+curl -H "Content-Type: application/json" -XPOST http://192.168.1.37:9200/news/_analyze?analyzer=ik&pretty=true&text=中国
 -------------------------------------------------------------------
 
 
-curl -XGET 'http://192.168.100.211:9200/_analyze?pretty&analyzer=ik_max_word' -d '联想是全球最大的笔记本厂商'
+curl -H 'Content-Type: application/json' -XGET 'http://192.168.1.37:9200/_analyze?pretty&analyzer=ik_max_word' -d '中国'
 
-curl -XGET 'https://192.168.232.11:9200/_analyze?pretty&analyzer=ik_smart' -d '联想是全球最大的笔记本厂商'
+curl -H 'Content-Type: application/json' -XGET 'http://192.168.1.37:9200/_analyze?pretty&analyzer=ik_smart' -d '中国'
 
-curl -XPUT 'https://192.168.100.211:9200/iktest?pretty' -d '{
-    "settings" : {
-        "analysis" : {
-            "analyzer" : {
-                "ik" : {
-                    "tokenizer" : "ik_max_word"
-                }
-            }
-        }
-    },
-    "mappings" : {
-        "article" : {
-            "dynamic" : true,
-            "properties" : {
-                "subject" : {
-                    "type" : "string",
-                    "analyzer" : "ik_max_word"
-                }
-            }
-        }
-    }
-}'
 
-curl -XPUT 'https://192.168.100.211:9200/iktest?pretty' -d '{
-    "settings" : {
-        "analysis" : {
-            "analyzer" : {
-                "ik" : {
-                    "tokenizer" : "ik_max_word"
-                }
-            }
-        }
-    },
-    "mappings" : {
-        "article" : {
-            "dynamic" : true,
-            "properties" : {
-                "subject" : {
-                    "type" : "string",
-                    "analyzer" : "ik_max_word"
-                }
-            }
-        }
-    }
-}'
+
 
 
 
